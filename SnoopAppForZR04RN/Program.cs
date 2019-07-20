@@ -2,16 +2,37 @@
 using System.Net;
 using System.Net.Sockets;
 using System.Threading.Tasks;
+using System.Text;
 using System.IO;
 
 namespace SnoopAppForZR04RN
 {
-    class Program
+    static class Program
     {
         static TcpListener listener5000;
         static TcpListener listener80;
         static string target = "192.168.226.180";
         static bool running = true;
+
+        public static T[] SubArray<T>(this T[] data, int index, int length)
+        {
+            T[] result = new T[length];
+            Array.Copy(data, index, result, 0, length);
+            return result;
+        }
+
+        public static string NullTerminate(this string data)
+        {
+            int i = data.IndexOf('\0');
+            if (i >= 0)
+                return data.Substring(0, i);
+            return data;
+        }
+
+        public static string Passwordize(this string data)
+        {
+            return new string('*', data.Length);
+        }
 
         static async Task Main(string[] args)
         {
@@ -152,17 +173,43 @@ namespace SnoopAppForZR04RN
 
                             if (packetLen >= (8 + (4 * 4)))
                             {
-                                // Decode message
+                                // cmdtype, cmdid, cmdver, datalen
+                                // Decode command
                                 int vi = 8;
-                                int messageId = buffer[vi] | buffer[vi + 1] << 8 | buffer[vi + 2] << 16 | buffer[vi + 3] << 24;
-                                vi += 4; // messageId
-                                vi += 4; // 0x00 unknown
-                                vi += 4; // 0x0a unknown
-                                int messageLen = buffer[vi] | buffer[vi + 1] << 8 | buffer[vi + 2] << 16 | buffer[vi + 3] << 24;
-                                vi += 4; // messageLen
-                                Console.WriteLine("Message {0} with length {1}, unknown {2}, unknown {3}",
-                                    Convert.ToString(messageId, 16), messageLen,
-                                    BitConverter.ToString(buffer, vi - 12, 4), BitConverter.ToString(buffer, vi - 8, 4));
+                                int cmdType = buffer[vi] | buffer[vi + 1] << 8 | buffer[vi + 2] << 16 | buffer[vi + 3] << 24;
+                                vi += 4; // cmdType
+                                int cmdId = buffer[vi] | buffer[vi + 1] << 8 | buffer[vi + 2] << 16 | buffer[vi + 3] << 24;
+                                vi += 4; // cmdId
+                                int cmdVer = buffer[vi] | buffer[vi + 1] << 8 | buffer[vi + 2] << 16 | buffer[vi + 3] << 24;
+                                vi += 4; // cmdVer
+                                int dataLen = buffer[vi] | buffer[vi + 1] << 8 | buffer[vi + 2] << 16 | buffer[vi + 3] << 24;
+                                vi += 4; // dataLen
+                                Console.WriteLine("Command 0x{0}, id {1}, version 0x{2}, with length {3}",
+                                    Convert.ToString(cmdType, 16),
+                                    cmdId, Convert.ToString(cmdVer, 16), dataLen);
+                                if ((packetLen + 8) >= (vi + dataLen))
+                                {
+                                    byte[] data = buffer.SubArray(vi, dataLen);
+                                    parseCommand(cmdType, data);
+                                }
+                                else
+                                {
+                                    Console.WriteLine("Command length exceeds packet by {0} bytes", (vi + dataLen) - (packetLen + 8));
+                                }
+                                if ((packetLen + 8) > (vi + dataLen))
+                                {
+                                    Console.WriteLine("Packet length exceeds command by {0} bytes", (packetLen + 8) - (vi + dataLen));
+                                }
+                            }
+                            else if (packetLen == 16)
+                            {
+                                int vi = 8;
+                                int cmdType = buffer[vi] | buffer[vi + 1] << 8 | buffer[vi + 2] << 16 | buffer[vi + 3] << 24;
+                                vi += 4; // cmdType
+                                int command = buffer[vi] | buffer[vi + 1] << 8 | buffer[vi + 2] << 16 | buffer[vi + 3] << 24;
+                                vi += 4; // command?
+                                Console.WriteLine("Short command 0x{0}: {1} ({2})", Convert.ToString(cmdType, 16), BitConverter.ToString(buffer, vi - 4, 4), command);
+                                parseCommand(cmdType, null);
                             }
 
                             Console.WriteLine();
@@ -200,6 +247,94 @@ namespace SnoopAppForZR04RN
             {
                 Console.WriteLine(ex);
             }
+        }
+
+        static void parseCommand(int cmdType, byte[] data)
+        {
+            int vi;
+            switch (cmdType)
+            {
+                case 0x1101:
+                    Console.WriteLine("DVRV3_LOGIN");
+                    if (data.Length != 120)
+                        goto UnknownCommandLength;
+                    vi = 0;
+                    Console.WriteLine("ConnectType: {0}", data[vi] | data[vi + 1] << 8 | data[vi + 2] << 16 | data[vi + 3] << 24);
+                    Console.WriteLine("IP: {0}.{0}.{0}.{0}", data[4], data[5], data[6], data[7]);
+                    Console.WriteLine("Username: {0}", Encoding.ASCII.GetString(data, 8, 36).NullTerminate()); // 8-44, 32 with enforced 00 on last 4 bytes
+                    Console.WriteLine("Password: {0}", Encoding.ASCII.GetString(data, 44, 36).NullTerminate().Passwordize()); // 44-80, 32 with enforced 00 on last 4 bytes
+                    Console.WriteLine("ComputerName: {0}", Encoding.ASCII.GetString(data, 80, 28).NullTerminate());
+                    Console.WriteLine("Mac: {0}", BitConverter.ToString(data, 108, 6));
+                    Console.WriteLine("Reserved (NULL): {0}", BitConverter.ToString(data, 114, 2));
+                    vi = 116;
+                    Console.WriteLine("NetProtocolVer: {0}", Convert.ToString(data[vi] | data[vi + 1] << 8 | data[vi + 2] << 16 | data[vi + 3] << 24, 16));
+                    break;
+                case 0x10001:
+                    Console.WriteLine("DVRV3_LOGIN_SUCCESS");
+                    if (data.Length != 352)
+                        goto UnknownCommandLength;
+                    vi = 0;
+                    Console.WriteLine("Unknown: {0}", data[vi] | data[vi + 1] << 8 | data[vi + 2] << 16 | data[vi + 3] << 24);
+                    Console.WriteLine("Authority: {0}", BitConverter.ToString(data, 4, 4));
+                    Console.WriteLine("AuthLiveCH: {0}", BitConverter.ToString(data, 8, 8));
+                    Console.WriteLine("AuthRecordCH: {0}", BitConverter.ToString(data, 16, 8));
+                    Console.WriteLine("AuthPlaybackCH: {0}", BitConverter.ToString(data, 24, 8));
+                    Console.WriteLine("AuthBackupCH: {0}", BitConverter.ToString(data, 32, 8));
+                    Console.WriteLine("AuthPTZCtrlCH: {0}", BitConverter.ToString(data, 40, 8));
+                    Console.WriteLine("AuthRemoteViewCH: {0}", BitConverter.ToString(data, 48, 8));
+                    Console.WriteLine("Unknown: {0}", BitConverter.ToString(data, 56, 28));
+                    Console.WriteLine("VideoInputNum: {0}", data[84] | data[85] << 8);
+                    Console.WriteLine("DeviceID: {0}", data[86] | data[87] << 8);
+                    Console.WriteLine("VideoFormat: {0}", BitConverter.ToString(data, 88, 4));
+                    for (int i = 0; i < 8; ++i)
+                        Console.WriteLine("Function[{0}]: {1}", i, BitConverter.ToString(data, 92 + (4*i), 4));
+                    Console.WriteLine("IP: {0}.{0}.{0}.{0}", data[124], data[125], data[126], data[127]);
+                    Console.WriteLine("Mac: {0}", BitConverter.ToString(data, 128, 6));
+                    Console.WriteLine("Reserved (NULL): {0}", BitConverter.ToString(data, 134, 2));
+                    // Console.WriteLine("BuildDate: {0}", BitConverter.ToString(command, 136, 4));
+                    vi = 136;
+                    int buildDate = data[vi] | data[vi + 1] << 8 | data[vi + 2] << 16 | data[vi + 3] << 24;
+                    Console.WriteLine("BuildDate: {0}-{1}-{2}", 
+                        (buildDate >> 16).ToString("0000"), ((buildDate >> 8) & 0xFF).ToString("00"), (buildDate & 0xFF).ToString("00"));
+                    // Console.WriteLine("BuildTime: {0}", BitConverter.ToString(command, 140, 4));
+                    vi = 140;
+                    int buildTime = data[vi] | data[vi + 1] << 8 | data[vi + 2] << 16 | data[vi + 3] << 24;
+                    Console.WriteLine("BuildTime: {0}:{1}:{2}", 
+                        ((buildTime >> 16) & 0xFF).ToString("00"), ((buildTime >> 8) & 0xFF).ToString("00"), (buildTime & 0xFF).ToString("00"));
+                    Console.WriteLine("DeviceName: {0}", Encoding.ASCII.GetString(data, 144, 36).NullTerminate());
+                    Console.WriteLine("FirmwareVersion: {0}", Encoding.ASCII.GetString(data, 180, 36).NullTerminate());
+                    Console.WriteLine("KernelVersion: {0}", Encoding.ASCII.GetString(data, 216, 64).NullTerminate());
+                    Console.WriteLine("HardwareVersion: {0}", Encoding.ASCII.GetString(data, 280, 36).NullTerminate());
+                    Console.WriteLine("McuVersion: {0}", Encoding.ASCII.GetString(data, 316, 36).NullTerminate());
+                    break;
+                case 0x1402:
+                    if (data != null)
+                        goto UnknownCommandData;
+                    Console.WriteLine("DVRV3_CONFIG_EXIT");
+                    break;
+                case 0x1401:
+                    if (data != null)
+                        goto UnknownCommandData;
+                    Console.WriteLine("DVRV3_CONFIG_ENTER");
+                    break;
+                // 0x1403
+                // 0x1405
+                case 0x40001:
+                    if (data != null)
+                        goto UnknownCommandData;
+                    Console.WriteLine("DVRV3_CONFIG_ENTER_SUCCESS");
+                    break;
+                default:
+                    Console.WriteLine("Unknown command type");
+                    break;
+            }
+            return;
+        UnknownCommandLength:
+            Console.WriteLine("Unknown command length");
+            return;
+        UnknownCommandData:
+            Console.WriteLine("Unknown command data");
+            return;
         }
 
         /*
