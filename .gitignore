@@ -1,0 +1,136 @@
+# Various build directories
+bin
+obj
+Debug
+Release
+ReleaseDebug
+DebugFast
+ReleaseDebugStatic
+DebugFastStatic
+
+# Test and application directories
+screenshots
+release
+test
+Temp
+
+# Windows compile
+*.exe
+*.dll
+*.lib
+*.obj
+
+# Linux compile
+*.a
+*.la
+*.lo
+*.Po
+*.Plo
+*.o
+*.so
+*.so.*
+*_debug
+core
+*.pc
+*.gch
+a.out
+*.sim
+.depend
+
+# Mac OS X compile
+*.dylib
+
+# Log dump files
+report_refused
+report_failed
+exception_catched
+*.stat
+*.log
+log.txt
+
+# Max plugin extensions
+*.dlx
+*.dlm
+*.dlu
+
+# makeall build
+.mode_static
+
+# cmake build files & directories
+CMakeFiles
+CMakeCache.txt
+cmake_install.cmake
+CTestTestfile.cmake
+CPackConfig.cmake
+CPackSourceConfig.cmake
+.libs
+
+# Linux garbage
+Makefile*
+aclocal.m4
+config.guess
+config.sub
+configure
+depcomp
+config.h.in
+nelconfig.h.in
+install-sh
+ltmain.sh
+missing
+ylwrap
+*.mk
+
+# Visual Studio garbage
+*.opensdf
+UpgradeLog*.XML
+_UpgradeReport_Files
+BuildLog.htm
+mt.dep
+ipch
+*.suo
+*.ncb
+*.user
+*.ilk
+*.pdb
+*.aps
+*.exp
+*.idb
+*.sdf
+.vs
+
+# Mac OS X garbage
+.DS_Store
+
+# Vim and kwrite cache
+*~
+
+# Kdevelop4 garbage
+*.kdev4
+.kdev4
+
+# Python cache
+*.pyd
+*.pyc
+
+# Qt compiler
+moc_*.cpp
+*.moc
+
+# Misc garbage
+*.rej
+*.orig
+*.cachefile
+*.cache
+*.patch
+*.7z
+external
+3rdParty
+.svn
+*.!sync
+[Aa]rchive/*
+
+# build
+[Bb]uild/*
+[Ii]nstall/*
+[Bb]uild*
+[Dd]istribution*
