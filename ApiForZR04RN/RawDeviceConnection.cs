@@ -190,7 +190,7 @@ namespace ApiForZR04RN
             }
             catch (Exception ex)
             {
-                // Console.WriteLine(ex);
+                Console.WriteLine(ex);
             }
             if (Disconnected != null)
                 Disconnected();

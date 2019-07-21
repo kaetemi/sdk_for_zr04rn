@@ -9,7 +9,7 @@ namespace ApiForZR04RN
         None = 0,
         Video,
         Audio,
-        VideoFormat, // 3
+        VideoFormat, // 3, data in BITMAPINFOHEADER format
         AudioFormat,
         Event,
         Text,

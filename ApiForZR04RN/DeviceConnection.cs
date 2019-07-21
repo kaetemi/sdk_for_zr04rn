@@ -20,10 +20,12 @@ namespace ApiForZR04RN
 
         uint lastStreamId = 0;
         Dictionary<uint, TaskCompletionSource<StreamFrame>> pendingKeyframe;
+        Dictionary<uint, int> streamChannel;
 
         public DeviceConnection()
         {
             pendingKeyframe = new Dictionary<uint, TaskCompletionSource<StreamFrame>>();
+            streamChannel = new Dictionary<uint, int>();
             connection = new StructuredDeviceConnection();
             connection.Connected += Connection_Connected;
             connection.CommandReceived += Connection_CommandReceived;
@@ -272,6 +274,38 @@ namespace ApiForZR04RN
             return await response.Task;
         }
 
+        public async Task<uint> StreamStart(int channel) // returns streamid
+        {
+            uint streamId = ++lastStreamId;
+            byte[] request = new byte[36];
+            streamChannel[streamId] = channel;
+            // uint StreamID;
+            request[0] = (byte)(streamId & 0xFF);
+            request[1] = (byte)((streamId >> 8) & 0xFF);
+            request[2] = (byte)((streamId >> 16) & 0xFF);
+            request[3] = (byte)((streamId >> 24) & 0xFF);
+            // ulong MasterVideoChannelBits;
+            request[4] = (byte)(1 << channel);
+            // ulong SubVideoChannelBits;
+            // ulong ThirdVideoChannelBits;
+            // ulong AudioChannelBits;
+            request[28] = request[4];
+            await connection.SendCommand(CommandType.RequestStreamStart, 10, request);
+            return streamId;
+        }
+
+        public async Task StreamChange(uint streamId)
+        {
+            byte[] request = new byte[36];
+            request[0] = (byte)(streamId & 0xFF);
+            request[1] = (byte)((streamId >> 8) & 0xFF);
+            request[2] = (byte)((streamId >> 16) & 0xFF);
+            request[3] = (byte)((streamId >> 24) & 0xFF);
+            request[4] = (byte)(1 << streamChannel[streamId]);
+            request[28] = request[4];
+            await connection.SendCommand(CommandType.RequestStreamChange, 10, request);
+        }
+
         public async Task StreamStop(uint streamId)
         {
             byte[] request = new byte[36];
@@ -279,6 +313,8 @@ namespace ApiForZR04RN
             request[1] = (byte)((streamId >> 8) & 0xFF);
             request[2] = (byte)((streamId >> 16) & 0xFF);
             request[3] = (byte)((streamId >> 24) & 0xFF);
+            if (streamChannel.ContainsKey(streamId))
+                streamChannel.Remove(streamId);
             await connection.SendCommand(CommandType.RequestStreamStop, 10, request);
         }
     }
