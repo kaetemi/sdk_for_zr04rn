@@ -3,7 +3,11 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.29102.190
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SnoopAppForZR04RN", "SnoopAppForZR04RN\SnoopAppForZR04RN.csproj", "{5ECC9682-6E49-4524-A501-2E34EFF24ED1}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SnoopAppForZR04RN", "SnoopAppForZR04RN\SnoopAppForZR04RN.csproj", "{5ECC9682-6E49-4524-A501-2E34EFF24ED1}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ApiForZR04RN", "ApiForZR04RN\ApiForZR04RN.csproj", "{6DBFF317-909E-4B00-ADF1-B218E98FDDDF}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CmdDemoForZR04RN", "CmdDemoForZR04RN\CmdDemoForZR04RN.csproj", "{155DA1CA-9601-4DC0-828F-F1B4B19BE400}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,6 +19,14 @@ Global
 		{5ECC9682-6E49-4524-A501-2E34EFF24ED1}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{5ECC9682-6E49-4524-A501-2E34EFF24ED1}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{5ECC9682-6E49-4524-A501-2E34EFF24ED1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6DBFF317-909E-4B00-ADF1-B218E98FDDDF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6DBFF317-909E-4B00-ADF1-B218E98FDDDF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6DBFF317-909E-4B00-ADF1-B218E98FDDDF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6DBFF317-909E-4B00-ADF1-B218E98FDDDF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{155DA1CA-9601-4DC0-828F-F1B4B19BE400}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{155DA1CA-9601-4DC0-828F-F1B4B19BE400}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{155DA1CA-9601-4DC0-828F-F1B4B19BE400}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{155DA1CA-9601-4DC0-828F-F1B4B19BE400}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
