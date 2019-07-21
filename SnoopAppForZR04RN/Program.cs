@@ -122,6 +122,53 @@ namespace SnoopAppForZR04RN
             }
         }
 
+        static void hackerPrint(byte[] buffer, int offset, int size)
+        {
+            if (buffer == null)
+            {
+                Console.WriteLine("NULL");
+                return;
+            }
+            int lines = (size + 15) / 16;
+            for (int y = 0; y < lines; ++y)
+            {
+                for (int x = 0; x < 16; ++x)
+                {
+                    if (((x) % 4) == 0)
+                        Console.Write(" ");
+                    int i = (y * 16) + x;
+                    if (i < size)
+                    {
+                        Console.Write(" {0}", BitConverter.ToString(new byte[1] { buffer[offset + i] }).ToUpper());
+                    }
+                    else
+                    {
+                        Console.Write("   ");
+                    }
+                }
+                Console.Write(" ");
+                for (int x = 0; x < 16; ++x)
+                {
+                    if (((x) % 4) == 0)
+                        Console.Write(" ");
+                    int i = (y * 16) + x;
+                    if (i < size)
+                    {
+                        char c = (char)buffer[offset + i];
+                        if ((c >= '0' && c <= '9') || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z'))
+                            Console.Write(c);
+                        else
+                            Console.Write('.');
+                    }
+                    else
+                    {
+                        Console.Write(" ");
+                    }
+                }
+                Console.WriteLine();
+            }
+        }
+
         const int MagicMarkerAAAA = 0x41414141;
         const int MagicMarkerHEAD = 0x64616568;
 
@@ -131,15 +178,17 @@ namespace SnoopAppForZR04RN
             NetworkStream toStream = to.GetStream();
             try
             {
-                byte[] buffer = new byte[64 * 1024];
+                byte[] buffer = new byte[256 * 1024];
                 int i = 0;
                 bool mustRead = true;
+                int maxFetch = 4096;
                 for (; ; )
                 {
                     int len;
                     if (mustRead)
                     {
-                        len = await fromStream.ReadAsync(buffer, i, buffer.Length - i);
+                        len = await fromStream.ReadAsync(buffer, i, Math.Min(buffer.Length - i, maxFetch));
+                        maxFetch = 4096;
                         if (len <= 0)
                             break;
                     }
@@ -167,6 +216,7 @@ namespace SnoopAppForZR04RN
                             if (i < (packetLen + 8))
                             {
                                 mustRead = true;
+                                maxFetch = (packetLen + 8) - i;
                                 continue;
                             }
                             Console.WriteLine("Received packet with length {0} from {1}", packetLen, fromName);
@@ -184,9 +234,10 @@ namespace SnoopAppForZR04RN
                                 vi += 4; // cmdVer
                                 int dataLen = buffer[vi] | buffer[vi + 1] << 8 | buffer[vi + 2] << 16 | buffer[vi + 3] << 24;
                                 vi += 4; // dataLen
-                                Console.WriteLine("Command 0x{0}, id {1}, version 0x{2}, with length {3}",
+                                Console.WriteLine("Command 0x{0}, id 0x{1}, version 0x{2}, with length {3}",
                                     Convert.ToString(cmdType, 16),
-                                    cmdId, Convert.ToString(cmdVer, 16), dataLen);
+                                    Convert.ToString(cmdId, 16),
+                                    Convert.ToString(cmdVer, 16), dataLen);
                                 if ((packetLen + 8) >= (vi + dataLen))
                                 {
                                     byte[] data = buffer.SubArray(vi, dataLen);
@@ -223,6 +274,7 @@ namespace SnoopAppForZR04RN
                             if (i < 64)
                             {
                                 mustRead = true;
+                                maxFetch = 64 - i;
                                 continue;
                             }
                             Console.WriteLine("Received head marker from {0}", fromName);
@@ -256,6 +308,8 @@ namespace SnoopAppForZR04RN
             {
                 case 0x1101:
                     Console.WriteLine("DVRV3_LOGIN");
+                    if (data == null)
+                        goto MissingCommandData;
                     if (data.Length != 120)
                         goto UnknownCommandLength;
                     vi = 0;
@@ -271,6 +325,8 @@ namespace SnoopAppForZR04RN
                     break;
                 case 0x10001:
                     Console.WriteLine("DVRV3_LOGIN_SUCCESS");
+                    if (data == null)
+                        goto MissingCommandData;
                     if (data.Length != 352)
                         goto UnknownCommandLength;
                     vi = 0;
@@ -287,19 +343,19 @@ namespace SnoopAppForZR04RN
                     Console.WriteLine("DeviceID: {0}", data[86] | data[87] << 8);
                     Console.WriteLine("VideoFormat: {0}", BitConverter.ToString(data, 88, 4));
                     for (int i = 0; i < 8; ++i)
-                        Console.WriteLine("Function[{0}]: {1}", i, BitConverter.ToString(data, 92 + (4*i), 4));
+                        Console.WriteLine("Function[{0}]: {1}", i, BitConverter.ToString(data, 92 + (4 * i), 4));
                     Console.WriteLine("IP: {0}.{0}.{0}.{0}", data[124], data[125], data[126], data[127]);
                     Console.WriteLine("Mac: {0}", BitConverter.ToString(data, 128, 6));
                     Console.WriteLine("Reserved (NULL): {0}", BitConverter.ToString(data, 134, 2));
                     // Console.WriteLine("BuildDate: {0}", BitConverter.ToString(command, 136, 4));
                     vi = 136;
                     int buildDate = data[vi] | data[vi + 1] << 8 | data[vi + 2] << 16 | data[vi + 3] << 24;
-                    Console.WriteLine("BuildDate: {0}-{1}-{2}", 
+                    Console.WriteLine("BuildDate: {0}-{1}-{2}",
                         (buildDate >> 16).ToString("0000"), ((buildDate >> 8) & 0xFF).ToString("00"), (buildDate & 0xFF).ToString("00"));
                     // Console.WriteLine("BuildTime: {0}", BitConverter.ToString(command, 140, 4));
                     vi = 140;
                     int buildTime = data[vi] | data[vi + 1] << 8 | data[vi + 2] << 16 | data[vi + 3] << 24;
-                    Console.WriteLine("BuildTime: {0}:{1}:{2}", 
+                    Console.WriteLine("BuildTime: {0}:{1}:{2}",
                         ((buildTime >> 16) & 0xFF).ToString("00"), ((buildTime >> 8) & 0xFF).ToString("00"), (buildTime & 0xFF).ToString("00"));
                     Console.WriteLine("DeviceName: {0}", Encoding.ASCII.GetString(data, 144, 36).NullTerminate());
                     Console.WriteLine("FirmwareVersion: {0}", Encoding.ASCII.GetString(data, 180, 36).NullTerminate());
@@ -307,25 +363,91 @@ namespace SnoopAppForZR04RN
                     Console.WriteLine("HardwareVersion: {0}", Encoding.ASCII.GetString(data, 280, 36).NullTerminate());
                     Console.WriteLine("McuVersion: {0}", Encoding.ASCII.GetString(data, 316, 36).NullTerminate());
                     break;
-                case 0x1402:
-                    if (data != null)
-                        goto UnknownCommandData;
-                    Console.WriteLine("DVRV3_CONFIG_EXIT");
-                    break;
                 case 0x1401:
+                    Console.WriteLine("DVRV3_REQUEST_CFG_ENTER");
                     if (data != null)
                         goto UnknownCommandData;
-                    Console.WriteLine("DVRV3_CONFIG_ENTER");
                     break;
-                // 0x1403
-                // 0x1405
-                case 0x40001:
+                case 0x1402:
+                    Console.WriteLine("DVRV3_REQUEST_CFG_EXIT");
                     if (data != null)
                         goto UnknownCommandData;
-                    Console.WriteLine("DVRV3_CONFIG_ENTER_SUCCESS");
+                    break;
+                case 0x1403:
+                    Console.WriteLine("DVRV3_REQUEST_CFG_GET");
+                    if (data == null)
+                        goto MissingCommandData;
+                    hackerPrint(data, 0, data == null ? 0 : data.Length);
+                    break;
+                case 0x1404:
+                    Console.WriteLine("DVRV3_REQUEST_CFG_SET");
+                    if (data == null)
+                        goto MissingCommandData;
+                    hackerPrint(data, 0, data == null ? 0 : data.Length);
+                    break;
+                case 0x1405:
+                    Console.WriteLine("DVRV3_REQUEST_CFG_DEF_DATA");
+                    if (data == null)
+                        goto MissingCommandData;
+                    hackerPrint(data, 0, data == null ? 0 : data.Length);
+                    break;
+                /*
+                DVRV3_REQUEST_CFG_DEFAULT
+                DVRV3_REQUEST_CFG_MODIFY_PASS
+                DVRV3_REQUEST_CFG_NET
+                DVRV3_REQUEST_CFG_IMPORT
+                DVRV3_REQUEST_CFG_EXPORT
+                 */
+                case 0x40001:
+                    Console.WriteLine("DVRV3_CONFIG_SUCCESS");
+                    if (data != null)
+                        goto UnknownCommandData;
+                    break;
+                case 0x40002:
+                    Console.WriteLine("DVRV3_CONFIG_DATA");
+                    if (data == null)
+                        goto MissingCommandData;
+                    hackerPrint(data, 0, data == null ? 0 : data.Length);
+                    break;
+                case 0x9000001:
+                    Console.WriteLine("DVRV3_REPLY_VIDEO_LOSS");
+                    if (data == null)
+                        goto MissingCommandData;
+                    hackerPrint(data, 0, data == null ? 0 : data.Length);
+                    break;
+                case 0x9000002:
+                    Console.WriteLine("DVRV3_REPLY_MOTION");
+                    if (data == null)
+                        goto MissingCommandData;
+                    hackerPrint(data, 0, data == null ? 0 : data.Length);
+                    break;
+                case 0x9000003:
+                    Console.WriteLine("DVRV3_REPLY_SENSOR");
+                    if (data == null)
+                        goto MissingCommandData;
+                    hackerPrint(data, 0, data == null ? 0 : data.Length);
+                    break;
+                case 0x9000004:
+                    Console.WriteLine("DVRV3_REPLY_REC_STATUS");
+                    if (data == null)
+                        goto MissingCommandData;
+                    hackerPrint(data, 0, data == null ? 0 : data.Length);
+                    break;
+                case 0x9000008:
+                    Console.WriteLine("DVRV3_REPLY_CHNN_NAME");
+                    if (data == null)
+                        goto MissingCommandData;
+                    hackerPrint(data, 0, data == null ? 0 : data.Length);
+                    break;
+                case 0xa000001:
+                    Console.WriteLine("DVRV3_REPLY_DATA_STREAM");
+                    if (data == null)
+                        goto MissingCommandData;
+                    hackerPrint(data, 0, data == null ? 0 : data.Length);
                     break;
                 default:
                     Console.WriteLine("Unknown command type");
+                    hackerPrint(data, 0, data == null ? 0 : data.Length);
                     break;
             }
             return;
@@ -334,6 +456,9 @@ namespace SnoopAppForZR04RN
             return;
         UnknownCommandData:
             Console.WriteLine("Unknown command data");
+            return;
+        MissingCommandData:
+            Console.WriteLine("Missing command data");
             return;
         }
 
