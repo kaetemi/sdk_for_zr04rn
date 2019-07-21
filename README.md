@@ -9,7 +9,7 @@ This SDK has been tested on the following devices:
   * Serial: ZR04RN (also referred to as 1NR-04RN00-EU, ZR04RN00, or ZR04FRN)
   * Firmware: V1.2.1.200420
 
-It will also work for similar devices by other manufacturers that use the same firmware and protocol. (Zosi ZR04RN, ZR04RM, ZR08RN, ZR08RM, Uniden Guardian G6440D1, G6840D1, G6860D2, G6880D2, BC6440D, G7404D1, G7804D1, G7805D2, G7842D2, G7844D2, G71644D3, G71644D3, G71684D3, GC7440D, GC7840D1, GC7880D3, ...)
+It will also work for similar devices by other manufacturers that use the same firmware and protocol. (Zosi ZR04PN, ZR04PM, ZR04RN, ZR04RM, ZR04FN, ZR04FM, ZR04LN, ZR04LM, ZR04ZN, ZR04ZM, ZR08KN, ZR08KM, ZR08AN, ZR08AM, ZR08QN, ZR08QM, ZR08RN, ZR08RM, ZR08ZN, ZR08FN, ZR08ZM, ZR08FM, ZR08KS, ZR08LS, ZR08LN, ZR08LM, 16QK, 16LK, ZR16ZK, ZR16JK, Uniden Guardian G6440D1, G6840D1, G6860D2, G6880D2, BC6440D, G7404D1, G7804D1, G7805D2, G7842D2, G7844D2, G71644D3, G71644D3, G71684D3, GC7440D, GC7840D1, GC7880D3, ...)
 
 No official support is provided.
 
