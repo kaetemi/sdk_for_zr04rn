@@ -23,6 +23,12 @@ namespace CmdDemoForZR04RN
             Console.WriteLine("Logged in");
             Console.WriteLine("Device name: {0}", loginSuccess.ProductInfo.DeviceName);
             Console.WriteLine("Firmware version: {0}", loginSuccess.ProductInfo.FirmwareVersion);
+            StreamFrame keyframe = await connection.SnapKeyframe(0);
+            Console.WriteLine("Keyframe received");
+            Console.WriteLine("Width: {0}", keyframe.Width);
+            Console.WriteLine("Height: {0}", keyframe.Height);
+            // File.WriteAllBytes("C:\\temp\\keyframe.h264", keyframe.Data);
+            Console.ReadKey();
         }
     }
 }

@@ -16,8 +16,14 @@ namespace ApiForZR04RN
         public event CommandCallback UnknownCommandReceived;
         public event Action Disconnected;
 
+        public event Action<StreamFrame> StreamFrameReceived;
+
+        uint lastStreamId = 0;
+        Dictionary<uint, TaskCompletionSource<StreamFrame>> pendingKeyframe;
+
         public DeviceConnection()
         {
+            pendingKeyframe = new Dictionary<uint, TaskCompletionSource<StreamFrame>>();
             connection = new StructuredDeviceConnection();
             connection.Connected += Connection_Connected;
             connection.CommandReceived += Connection_CommandReceived;
@@ -26,6 +32,9 @@ namespace ApiForZR04RN
 
         ~DeviceConnection()
         {
+            foreach (TaskCompletionSource<StreamFrame> pending in pendingKeyframe.Values)
+                pending.SetException(new Exception("Disposed"));
+            pendingKeyframe.Clear();
             connection.Disconnect();
             connection.CommandReceived -= Connection_CommandReceived;
             connection.Connected -= Connection_Connected;
@@ -39,6 +48,9 @@ namespace ApiForZR04RN
 
         public void Disconnect()
         {
+            foreach (TaskCompletionSource<StreamFrame> pending in pendingKeyframe.Values)
+                pending.SetException(new Exception("Disconnected"));
+            pendingKeyframe.Clear();
             connection.Disconnect();
         }
 
@@ -50,8 +62,58 @@ namespace ApiForZR04RN
 
         private void Connection_CommandReceived(CommandType cmdType, uint cmdId, uint cmdVer, byte[] data)
         {
+            int vi;
             switch (cmdType)
             {
+                case CommandType.ReplyDataStream:
+                    {
+                        StreamFrame streamFrame;
+                        vi = 0;
+                        streamFrame.KeyFrame = data[vi] | (uint)data[vi + 1] << 8 | (uint)data[vi + 2] << 16 | (uint)data[vi + 3] << 24;
+                        vi = 4;
+                        streamFrame.FrameType = (FrameType)(data[vi] | (uint)data[vi + 1] << 8 | (uint)data[vi + 2] << 16 | (uint)data[vi + 3] << 24);
+                        vi = 8;
+                        streamFrame.Length = data[vi] | (uint)data[vi + 1] << 8 | (uint)data[vi + 2] << 16 | (uint)data[vi + 3] << 24;
+                        vi = 12;
+                        streamFrame.Width = data[vi] | (uint)data[vi + 1] << 8 | (uint)data[vi + 2] << 16 | (uint)data[vi + 3] << 24;
+                        vi = 16;
+                        streamFrame.Height = data[vi] | (uint)data[vi + 1] << 8 | (uint)data[vi + 2] << 16 | (uint)data[vi + 3] << 24;
+                        vi = 20;
+                        streamFrame.LData = data[vi] | (uint)data[vi + 1] << 8 | (uint)data[vi + 2] << 16 | (uint)data[vi + 3] << 24;
+                        vi = 24;
+                        streamFrame.Channel = data[vi] | (uint)data[vi + 1] << 8 | (uint)data[vi + 2] << 16 | (uint)data[vi + 3] << 24;
+                        vi = 28;
+                        streamFrame.BufIndex = data[vi] | (uint)data[vi + 1] << 8 | (uint)data[vi + 2] << 16 | (uint)data[vi + 3] << 24;
+                        vi = 32;
+                        streamFrame.FrameIndex = data[vi] | (uint)data[vi + 1] << 8 | (uint)data[vi + 2] << 16 | (uint)data[vi + 3] << 24;
+                        vi = 36;
+                        streamFrame.FrameAttrib = (FrameAttrib)(data[vi] | (uint)data[vi + 1] << 8 | (uint)data[vi + 2] << 16 | (uint)data[vi + 3] << 24);
+                        vi = 40;
+                        streamFrame.StreamId = data[vi] | (uint)data[vi + 1] << 8 | (uint)data[vi + 2] << 16 | (uint)data[vi + 3] << 24;
+                        vi = 44;
+                        streamFrame.Time = (long)(data[vi] | (ulong)data[vi + 1] << 8 | (ulong)data[vi + 2] << 16 | (ulong)data[vi + 3] << 24
+                             | (ulong)data[vi + 3] << 32 | (ulong)data[vi + 3] << 40 | (ulong)data[vi + 3] << 48 | (ulong)data[vi + 3] << 56);
+                        vi = 52;
+                        streamFrame.RelativeTime = (long)(data[vi] | (ulong)data[vi + 1] << 8 | (ulong)data[vi + 2] << 16 | (ulong)data[vi + 3] << 24
+                             | (ulong)data[vi + 3] << 32 | (ulong)data[vi + 3] << 40 | (ulong)data[vi + 3] << 48 | (ulong)data[vi + 3] << 56);
+                        streamFrame.Data = data.SubArray(60, (int)Math.Min(streamFrame.Length, data.Length - 60));
+                        if (pendingKeyframe.ContainsKey(streamFrame.StreamId))
+                        {
+                            if (streamFrame.FrameType == FrameType.Video && streamFrame.KeyFrame != 0)
+                            {
+                                StreamStop(streamFrame.StreamId);
+                                TaskCompletionSource<StreamFrame> response = pendingKeyframe[streamFrame.StreamId];
+                                pendingKeyframe.Remove(streamFrame.StreamId);
+                                response.SetResult(streamFrame);
+                            }
+                        }
+                        else
+                        {
+                            if (StreamFrameReceived != null)
+                                StreamFrameReceived(streamFrame);
+                        }
+                    }
+                    break;
                 default:
                     if (UnknownCommandReceived != null)
                         UnknownCommandReceived(cmdType, cmdId, cmdVer, data);
@@ -91,6 +153,7 @@ namespace ApiForZR04RN
             {
                 case CommandType.ReplyLoginSuccess:
                     LoginSuccess success;
+                    // unknown 32 bits
                     vi = 4;
                     success.Authority = data[vi] | (uint)data[vi + 1] << 8 | (uint)data[vi + 2] << 16 | (uint)data[vi + 3] << 24;
                     vi += 4;
@@ -186,6 +249,37 @@ namespace ApiForZR04RN
                 default:
                     throw new Exception("Unknown command type");
             }
+        }
+
+        public async Task<StreamFrame> SnapKeyframe(int channel)
+        {
+            TaskCompletionSource<StreamFrame> response = new TaskCompletionSource<StreamFrame>();
+            uint streamId = ++lastStreamId;
+            pendingKeyframe[streamId] = response;
+            byte[] request = new byte[36];
+            // uint StreamID;
+            request[0] = (byte)(streamId & 0xFF);
+            request[1] = (byte)((streamId >> 8) & 0xFF);
+            request[2] = (byte)((streamId >> 16) & 0xFF);
+            request[3] = (byte)((streamId >> 24) & 0xFF);
+            // ulong MasterVideoChannelBits;
+            request[4] = (byte)(1 << channel);
+            // ulong SubVideoChannelBits;
+            // ulong ThirdVideoChannelBits;
+            // ulong AudioChannelBits;
+            request[28] = request[4];
+            await connection.SendCommand(CommandType.RequestStreamStart, 10, request);
+            return await response.Task;
+        }
+
+        public async Task StreamStop(uint streamId)
+        {
+            byte[] request = new byte[36];
+            request[0] = (byte)(streamId & 0xFF);
+            request[1] = (byte)((streamId >> 8) & 0xFF);
+            request[2] = (byte)((streamId >> 16) & 0xFF);
+            request[3] = (byte)((streamId >> 24) & 0xFF);
+            await connection.SendCommand(CommandType.RequestStreamStop, 10, request);
         }
     }
 }

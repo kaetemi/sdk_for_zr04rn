@@ -14,6 +14,22 @@ namespace ApiForZR04RN
         BaseReplyLogin = 0x10000,
         ReplyLoginSuccess,
         ReplyLoginFail,
-        EndReplyLogin
+        EndReplyLogin,
+
+        BaseControl = 0x1200,
+        RequestStreamStart,
+        RequestStreamChange,
+        RequestStreamStop,
+        RequestKeyframe,
+        // ...
+        EndControl,
+
+        BaseReplyControl = 0x20000,
+
+        EndReplyControl,
+
+        BaseReplyStream = 0xa000000,
+        ReplyDataStream,
+        EndReplyStream,
     }
 }

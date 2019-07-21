@@ -377,7 +377,7 @@ namespace SnoopAppForZR04RN
                     Console.WriteLine("DVRV3_REQUEST_CFG_GET");
                     if (data == null)
                         goto MissingCommandData;
-                    hackerPrint(data, 0, data == null ? 0 : data.Length);
+                    // hackerPrint(data, 0, data == null ? 0 : data.Length);
                     break;
                 case 0x1404:
                     Console.WriteLine("DVRV3_REQUEST_CFG_SET");
@@ -389,7 +389,7 @@ namespace SnoopAppForZR04RN
                     Console.WriteLine("DVRV3_REQUEST_CFG_DEF_DATA");
                     if (data == null)
                         goto MissingCommandData;
-                    hackerPrint(data, 0, data == null ? 0 : data.Length);
+                    // hackerPrint(data, 0, data == null ? 0 : data.Length);
                     break;
                 /*
                 DVRV3_REQUEST_CFG_DEFAULT
@@ -407,34 +407,58 @@ namespace SnoopAppForZR04RN
                     Console.WriteLine("DVRV3_CONFIG_DATA");
                     if (data == null)
                         goto MissingCommandData;
-                    hackerPrint(data, 0, data == null ? 0 : data.Length);
+                    // hackerPrint(data, 0, data == null ? 0 : data.Length);
                     break;
                 case 0x9000001:
                     Console.WriteLine("DVRV3_REPLY_VIDEO_LOSS");
                     if (data == null)
                         goto MissingCommandData;
-                    hackerPrint(data, 0, data == null ? 0 : data.Length);
+                    // hackerPrint(data, 0, data == null ? 0 : data.Length);
                     break;
                 case 0x9000002:
                     Console.WriteLine("DVRV3_REPLY_MOTION");
                     if (data == null)
                         goto MissingCommandData;
-                    hackerPrint(data, 0, data == null ? 0 : data.Length);
+                    // hackerPrint(data, 0, data == null ? 0 : data.Length);
                     break;
                 case 0x9000003:
                     Console.WriteLine("DVRV3_REPLY_SENSOR");
                     if (data == null)
                         goto MissingCommandData;
-                    hackerPrint(data, 0, data == null ? 0 : data.Length);
+                    // hackerPrint(data, 0, data == null ? 0 : data.Length);
                     break;
                 case 0x9000004:
                     Console.WriteLine("DVRV3_REPLY_REC_STATUS");
                     if (data == null)
                         goto MissingCommandData;
-                    hackerPrint(data, 0, data == null ? 0 : data.Length);
+                    // hackerPrint(data, 0, data == null ? 0 : data.Length);
                     break;
                 case 0x9000008:
                     Console.WriteLine("DVRV3_REPLY_CHNN_NAME");
+                    if (data == null)
+                        goto MissingCommandData;
+                    // hackerPrint(data, 0, data == null ? 0 : data.Length);
+                    break;
+                case 0x1201:
+                    Console.WriteLine("DVRV3_REQUEST_STREAM_START");
+                    if (data == null)
+                        goto MissingCommandData;
+                    hackerPrint(data, 0, data == null ? 0 : data.Length);
+                    break;
+                case 0x1202:
+                    Console.WriteLine("DVRV3_REQUEST_STREAM_CHANGE");
+                    if (data == null)
+                        goto MissingCommandData;
+                    hackerPrint(data, 0, data == null ? 0 : data.Length);
+                    break;
+                case 0x1203:
+                    Console.WriteLine("DVRV3_REQUEST_STREAM_STOP");
+                    if (data == null)
+                        goto MissingCommandData;
+                    hackerPrint(data, 0, data == null ? 0 : data.Length);
+                    break;
+                case 0x1204:
+                    Console.WriteLine("DVRV3_REQUEST_KEYFRAME");
                     if (data == null)
                         goto MissingCommandData;
                     hackerPrint(data, 0, data == null ? 0 : data.Length);
@@ -443,11 +467,49 @@ namespace SnoopAppForZR04RN
                     Console.WriteLine("DVRV3_REPLY_DATA_STREAM");
                     if (data == null)
                         goto MissingCommandData;
-                    hackerPrint(data, 0, data == null ? 0 : data.Length);
+                    if (data.Length >= 60)
+                    {
+                        // frametype 3 is info
+                        /*
+                        vi = 0;
+                        Console.WriteLine("KeyFrame: {0}", data[vi] | data[vi + 1] << 8 | data[vi + 2] << 16 | data[vi + 3] << 24);
+                        vi = 4;
+                        Console.WriteLine("FrameType: {0}", data[vi] | data[vi + 1] << 8 | data[vi + 2] << 16 | data[vi + 3] << 24);
+                        vi = 8;
+                        Console.WriteLine("Length: {0}", data[vi] | data[vi + 1] << 8 | data[vi + 2] << 16 | data[vi + 3] << 24);
+                        vi = 12;
+                        Console.WriteLine("Width: {0}", data[vi] | data[vi + 1] << 8 | data[vi + 2] << 16 | data[vi + 3] << 24);
+                        vi = 16;
+                        Console.WriteLine("Height: {0}", data[vi] | data[vi + 1] << 8 | data[vi + 2] << 16 | data[vi + 3] << 24);
+                        vi = 20;
+                        Console.WriteLine("LData: {0}", data[vi] | data[vi + 1] << 8 | data[vi + 2] << 16 | data[vi + 3] << 24);
+                        vi = 24;
+                        Console.WriteLine("Channel: {0}", data[vi] | data[vi + 1] << 8 | data[vi + 2] << 16 | data[vi + 3] << 24);
+                        vi = 28;
+                        Console.WriteLine("BufIndex: {0}", data[vi] | data[vi + 1] << 8 | data[vi + 2] << 16 | data[vi + 3] << 24);
+                        vi = 32;
+                        Console.WriteLine("FrameIndex: {0}", data[vi] | data[vi + 1] << 8 | data[vi + 2] << 16 | data[vi + 3] << 24);
+                        vi = 36;
+                        Console.WriteLine("FrameAttrib: {0}", data[vi] | data[vi + 1] << 8 | data[vi + 2] << 16 | data[vi + 3] << 24);
+                        vi = 40;
+                        Console.WriteLine("StreamId: {0}", data[vi] | data[vi + 1] << 8 | data[vi + 2] << 16 | data[vi + 3] << 24);
+                        vi = 44;
+                        Console.WriteLine("Time: {0}", data[vi] | data[vi + 1] << 8 | data[vi + 2] << 16 | data[vi + 3] << 24
+                             | data[vi + 4] << 32 | data[vi + 5] << 40 | data[vi + 6] << 48 | data[vi + 7] << 56);
+                        vi = 52;
+                        Console.WriteLine("RelativeTime: {0}", data[vi] | data[vi + 1] << 8 | data[vi + 2] << 16 | data[vi + 3] << 24
+                             | data[vi + 4] << 32 | data[vi + 5] << 40 | data[vi + 6] << 48 | data[vi + 7] << 56);
+                        hackerPrint(data, 60, Math.Min(data == null ? 0 : data.Length - 60, 64));
+                        */
+                    }
+                    else
+                    {
+                        hackerPrint(data, 0, Math.Min(data == null ? 0 : data.Length, 128));
+                    }
                     break;
                 default:
                     Console.WriteLine("Unknown command type");
-                    hackerPrint(data, 0, data == null ? 0 : data.Length);
+                    // hackerPrint(data, 0, data == null ? 0 : data.Length);
                     break;
             }
             return;
