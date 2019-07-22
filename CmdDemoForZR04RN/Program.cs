@@ -34,7 +34,7 @@ namespace CmdDemoForZR04RN
             Console.WriteLine("Height: {0}", keyframe.Height);
             // File.WriteAllBytes("C:\\temp\\keyframe.h264", keyframe.Data);
             connection.StreamFrameReceived += Connection_StreamFrameReceived;
-            fs = new FileStream("C:\\temp\\channel0.h264", FileMode.Create, FileAccess.Write, FileShare.Read);
+            fs = new FileStream("C:\\temp\\channel0a.h264", FileMode.Create, FileAccess.Write, FileShare.Read);
             streamId = await connection.StreamStart(0);
             // Console.ReadKey();
             await (new TaskCompletionSource<bool>().Task);
@@ -52,7 +52,11 @@ namespace CmdDemoForZR04RN
                 // Console.WriteLine("Frame received");
                 // Console.WriteLine("Attrib: 0x{0}", Convert.ToString((uint)frame.FrameAttrib, 16));
                 fs.Write(frame.Data, 0, frame.Data.Length);
-                connection.StreamChange(streamId);
+                if (frame.KeyFrame)
+                {
+                    Console.WriteLine("Keyframe received");
+                    connection.StreamChange(streamId); // Should send this to KeepAlive every few seconds, so anytime a keyframe is received works!
+                }
             }
             else
             {

@@ -37,7 +37,7 @@ namespace ApiForZR04RN
 
     public struct StreamFrame
     {
-        public uint KeyFrame;
+        public bool KeyFrame;
         public FrameType FrameType;
         public uint Length;
         public uint Width;

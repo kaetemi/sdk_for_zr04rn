@@ -20,7 +20,7 @@ namespace ApiForZR04RN
         RequestStreamStart,
         RequestStreamChange,
         RequestStreamStop,
-        RequestKeyframe,
+        RequestKeyframe, //< Supposed to request the next frame to be a keyframe, but no effect on H264 device
         // ...
         EndControl,
 

@@ -71,7 +71,8 @@ namespace ApiForZR04RN
                     {
                         StreamFrame streamFrame;
                         vi = 0;
-                        streamFrame.KeyFrame = data[vi] | (uint)data[vi + 1] << 8 | (uint)data[vi + 2] << 16 | (uint)data[vi + 3] << 24;
+                        uint keyFrame = data[vi] | (uint)data[vi + 1] << 8 | (uint)data[vi + 2] << 16 | (uint)data[vi + 3] << 24;
+                        streamFrame.KeyFrame = keyFrame != 0;
                         vi = 4;
                         streamFrame.FrameType = (FrameType)(data[vi] | (uint)data[vi + 1] << 8 | (uint)data[vi + 2] << 16 | (uint)data[vi + 3] << 24);
                         vi = 8;
@@ -101,7 +102,7 @@ namespace ApiForZR04RN
                         streamFrame.Data = data.SubArray(60, (int)Math.Min(streamFrame.Length, data.Length - 60));
                         if (pendingKeyframe.ContainsKey(streamFrame.StreamId))
                         {
-                            if (streamFrame.FrameType == FrameType.Video && streamFrame.KeyFrame != 0)
+                            if (streamFrame.FrameType == FrameType.Video && streamFrame.KeyFrame)
                             {
                                 StreamStop(streamFrame.StreamId);
                                 TaskCompletionSource<StreamFrame> response = pendingKeyframe[streamFrame.StreamId];

@@ -1,0 +1,3 @@
+[submodule "RtspForZR04RN/SharpRTSP"]
+	path = RtspForZR04RN/SharpRTSP
+	url = git@github.com:ngraziano/SharpRTSP.git
