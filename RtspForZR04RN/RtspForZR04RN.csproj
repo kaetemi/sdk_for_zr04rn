@@ -1,0 +1,19 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>netcoreapp2.2</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="SharpRTSP\**" />
+    <EmbeddedResource Remove="SharpRTSP\**" />
+    <None Remove="SharpRTSP\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ApiForZR04RN\ApiForZR04RN.csproj" />
+    <ProjectReference Include="SharpRTSP\RTSP\RTSP.csproj" />
+  </ItemGroup>
+
+</Project>
