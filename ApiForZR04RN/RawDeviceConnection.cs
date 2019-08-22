@@ -24,6 +24,10 @@ namespace ApiForZR04RN
         bool abortListen = false;
         Task listenTask;
 
+        static byte[] blankPackBuffer = new byte[0];
+        byte[] packBuffer = blankPackBuffer;
+        int packSize = 0;
+
         public event Action Connected;
         public event CommandCallback CommandReceived;
         public event Action Disconnected;
@@ -63,6 +67,7 @@ namespace ApiForZR04RN
 
         public const int MagicMarkerAAAA = 0x41414141;
         public const int MagicMarkerHEAD = 0x64616568;
+        public const int MagicMarkerPACK = 0x4B434150;
 
         private async Task Listen(TcpClient client)
         {
@@ -137,7 +142,72 @@ namespace ApiForZR04RN
                                 }
                                 else
                                 {
-                                    // Console.WriteLine("Command length exceeds packet by {0} bytes", (vi + dataLen) - (packetLen + 8));
+                                    if (dataLen > 8 * 1024 * 1024)
+                                    {
+                                        // Console.WriteLine("Packet too large at {0} bytes", dataLen);
+                                    }
+                                    else if (cmdType == MagicMarkerPACK)
+                                    {
+                                        vi += 12;
+                                        int packLoad = (packetLen + 8 - vi);
+                                        // Console.WriteLine("PACK {0} {1} load {2}", cmdId, cmdVer, packLoad);
+                                        if (packBuffer.Length != dataLen)
+                                        {
+                                            if (packSize != 0)
+                                            {
+                                                // Console.WriteLine("Lost packed command at {0} out of {1} bytes", packSize, packBuffer.Length);
+                                            }
+                                            packBuffer = new byte[dataLen];
+                                            packSize = 0;
+                                        }
+                                        int packOverflow = (packSize + packLoad) - packBuffer.Length;
+                                        if (packOverflow > 0)
+                                        {
+                                            // Console.WriteLine("Packed command overflow by {0} bytes", packOverflow);
+                                            packBuffer = new byte[0];
+                                            packSize = 0;
+                                        }
+                                        else
+                                        {
+                                            byte[] data = buffer.SubArray(vi, packLoad);
+                                            data.CopyTo(packBuffer, packSize);
+                                            packSize += packLoad;
+                                            if (packSize == dataLen)
+                                            {
+                                                // Console.WriteLine("PACK COMPLETE");
+                                                vi = 0;
+                                                cmdType = packBuffer[vi] | (uint)packBuffer[vi + 1] << 8 | (uint)packBuffer[vi + 2] << 16 | (uint)packBuffer[vi + 3] << 24;
+                                                vi += 4; // cmdType
+                                                cmdId = packBuffer[vi] | (uint)packBuffer[vi + 1] << 8 | (uint)packBuffer[vi + 2] << 16 | (uint)packBuffer[vi + 3] << 24;
+                                                vi += 4; // cmdId
+                                                cmdVer = packBuffer[vi] | (uint)packBuffer[vi + 1] << 8 | (uint)packBuffer[vi + 2] << 16 | (uint)packBuffer[vi + 3] << 24;
+                                                vi += 4; // cmdVer
+                                                dataLen = packBuffer[vi] | packBuffer[vi + 1] << 8 | packBuffer[vi + 2] << 16 | packBuffer[vi + 3] << 24;
+                                                vi += 4; // dataLen
+                                                // Console.WriteLine("Packed command 0x{0}, id 0x{1}, version 0x{2}, with length {3}",
+                                                //     Convert.ToString(cmdType, 16),
+                                                //     Convert.ToString(cmdId, 16),
+                                                //     Convert.ToString(cmdVer, 16), dataLen);
+                                                if ((packBuffer.Length) >= (vi + dataLen))
+                                                {
+                                                    byte[] packData = packBuffer.SubArray(vi, dataLen);
+                                                    if (CommandReceived != null)
+                                                        CommandReceived((CommandType)cmdType, cmdId, cmdVer, packData);
+                                                }
+                                                else
+                                                {
+                                                    // Console.WriteLine("Packed command length exceeds packet by {0} bytes", (vi + dataLen) - (packetLen + 8));
+                                                }
+                                                packBuffer = blankPackBuffer;
+                                                packSize = 0;
+                                            }
+                                        }
+                                    }
+                                    else
+                                    {
+                                        // Console.WriteLine("Command length exceeds packet by {0} bytes", (vi + dataLen) - (packetLen + 8));
+                                        // hackerPrint(buffer, 0, (packetLen + 8));
+                                    }
                                 }
                                 if ((packetLen + 8) > (vi + dataLen))
                                 {
