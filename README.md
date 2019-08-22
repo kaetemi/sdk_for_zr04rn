@@ -23,7 +23,7 @@ A command starts with a 32-bit integer specifying the command type, followed by 
 
 If the command has data, the header also contains a 32-bit value specifying the version of the command (usually 0xA), and a 32-bit integer specifying the length of the data. The data length plus the 16-byte header size should match the command length specified by the packet, except for the following case.
 
-Commands that cause a packet larger than 131100 bytes, excluding the 8 byte header length, are split up into multiple commands with the ASCII marker "PACK". After the "PACK" command type marker, follows a 32-bit integer; another 32-bit integer specifying the number of packets in the place where regular commands have their version value; a 32-bit integer specifying the total length of the command that was split up; followed by 3 more 32-bit integers, so 7 32-bit integers in total including the "PACK" marker, and then the data.
+Commands that cause a packet larger than 131100 bytes, excluding the 8 byte header length, are split up into multiple commands with the ASCII marker "PACK". After the "PACK" command type marker, follows a 32-bit integer; another 32-bit integer specifying the number of packets in the place where regular commands have their version value; a 32-bit integer specifying the total length of the command that was split up; followed by 3 more 32-bit integers, so 7 integers in total including the "PACK" marker, then the data.
 
 ## Network Behaviour
 
