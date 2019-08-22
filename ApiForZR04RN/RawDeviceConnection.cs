@@ -142,9 +142,17 @@ namespace ApiForZR04RN
                                 }
                                 else
                                 {
-                                    if (dataLen > 8 * 1024 * 1024)
+                                    if (dataLen > (8 * 1024 * 1024))
                                     {
-                                        // Console.WriteLine("Packet too large at {0} bytes", dataLen);
+                                        // Console.WriteLine("Packet data too large at {0} bytes", dataLen);
+                                    }
+                                    else if (dataLen < 16)
+                                    {
+                                        // Console.WriteLine("Packet data too small at {0} bytes", dataLen);
+                                    }
+                                    else if (packetLen < (vi + 12))
+                                    {
+                                        // Console.WriteLine("Packet too small at {0} bytes", packetLen);
                                     }
                                     else if (cmdType == MagicMarkerPACK)
                                     {
