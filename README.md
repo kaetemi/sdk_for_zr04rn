@@ -21,7 +21,9 @@ Each subsequent packet from the DVR and client application will start with an 8 
 
 A command starts with a 32-bit integer specifying the command type, followed by a 32-bit request identifier. Responses are sent with the same identifier as the request, to match responses with their respective requests. Responses should not be sent without the command identifier, but must be accepted. If a response is received with the identifier set to 0, or an with unknown command identifier, it must be matched by command type instead. Identifier -1 should be used for messages that do not expect a response, identifier 0 may be used as a wildcard.
 
-If the command has data, the header also contains a 32-bit value specifying the version of the command (usually 0xA), and a 32-bit integer specifying the length of the data. The data length plus the 16-byte header size should match the command length specified by the packet.
+If the command has data, the header also contains a 32-bit value specifying the version of the command (usually 0xA), and a 32-bit integer specifying the length of the data. The data length plus the 16-byte header size should match the command length specified by the packet, except for the following case.
+
+Commands that cause a packet larger than 131100 bytes, excluding the 8 byte header length, are split up into multiple commands with the ASCII marker "PACK". After the "PACK" command type marker, follows a 32-bit integer; another 32-bit integer specifying the number of packets in the place where regular commands have their version value; a 32-bit integer specifying the total length of the command that was split up; followed by 3 more 32-bit integers; and then the data.
 
 ## Network Behaviour
 
