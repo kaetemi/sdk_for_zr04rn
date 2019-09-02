@@ -256,6 +256,11 @@ namespace ApiForZR04RN
 
         public async Task<StreamFrame> SnapKeyframe(int channel)
         {
+            return await SnapKeyframe(channel, 0);
+        }
+
+        public async Task<StreamFrame> SnapKeyframe(int channel, int sub)
+        {
             TaskCompletionSource<StreamFrame> response = new TaskCompletionSource<StreamFrame>();
             uint streamId = ++lastStreamId;
             pendingKeyframe[streamId] = response;
@@ -266,16 +271,23 @@ namespace ApiForZR04RN
             request[2] = (byte)((streamId >> 16) & 0xFF);
             request[3] = (byte)((streamId >> 24) & 0xFF);
             // ulong MasterVideoChannelBits;
-            request[4] = (byte)(1 << channel);
+            request[4] = sub == 0 ? (byte)(1 << channel) : (byte)0;
             // ulong SubVideoChannelBits;
+            request[12] = sub == 1 ? (byte)(1 << channel) : (byte)0;
             // ulong ThirdVideoChannelBits;
+            request[20] = sub == 2 ? (byte)(1 << channel) : (byte)0;
             // ulong AudioChannelBits;
-            request[28] = request[4];
+            // request[28] = request[4];
             await connection.SendCommand(CommandType.RequestStreamStart, 10, request);
             return await response.Task;
         }
 
         public async Task<uint> StreamStart(int channel) // returns streamid
+        {
+            return await StreamStart(channel, 0, true);
+        }
+
+        public async Task<uint> StreamStart(int channel, int sub, bool audio) // returns streamid
         {
             uint streamId = ++lastStreamId;
             byte[] request = new byte[36];
@@ -286,11 +298,13 @@ namespace ApiForZR04RN
             request[2] = (byte)((streamId >> 16) & 0xFF);
             request[3] = (byte)((streamId >> 24) & 0xFF);
             // ulong MasterVideoChannelBits;
-            request[4] = (byte)(1 << channel);
+            request[4] = sub == 0 ? (byte)(1 << channel) : (byte)0;
             // ulong SubVideoChannelBits;
+            request[12] = sub == 1 ? (byte)(1 << channel) : (byte)0;
             // ulong ThirdVideoChannelBits;
+            request[20] = sub == 2 ? (byte)(1 << channel) : (byte)0;
             // ulong AudioChannelBits;
-            request[28] = request[4];
+            request[20] = audio ? (byte)(1 << channel) : (byte)0;
             await connection.SendCommand(CommandType.RequestStreamStart, 10, request);
             return streamId;
         }
