@@ -109,13 +109,22 @@ namespace ApiForZR04RN
                         streamFrame.RelativeTime = (long)(data[vi] | (ulong)data[vi + 1] << 8 | (ulong)data[vi + 2] << 16 | (ulong)data[vi + 3] << 24
                              | (ulong)data[vi + 3] << 32 | (ulong)data[vi + 3] << 40 | (ulong)data[vi + 3] << 48 | (ulong)data[vi + 3] << 56);
                         streamFrame.Data = data.SubArray(60, (int)Math.Min(streamFrame.Length, data.Length - 60));
-                        if (pendingKeyframe.ContainsKey(streamFrame.StreamId))
+                        uint checkStreamId = streamFrame.StreamId;
+                        if (streamFrame.StreamId == 0 && pendingKeyframe.Count > 0)
+                        {
+                            Dictionary<uint, TaskCompletionSource<StreamFrame>>.KeyCollection.Enumerator enumerator = pendingKeyframe.Keys.GetEnumerator();
+                            enumerator.MoveNext();
+                            checkStreamId = enumerator.Current;
+                        }
+                        if (pendingKeyframe.ContainsKey(checkStreamId))
                         {
                             if (streamFrame.FrameType == FrameType.Video && streamFrame.KeyFrame)
                             {
-                                StreamStop(streamFrame.StreamId);
-                                TaskCompletionSource<StreamFrame> response = pendingKeyframe[streamFrame.StreamId];
-                                pendingKeyframe.Remove(streamFrame.StreamId);
+                                Debug.Assert(TaskScheduler.Current == Scheduler);
+                                _ = StreamStop(checkStreamId);
+                                Debug.Assert(TaskScheduler.Current == Scheduler);
+                                TaskCompletionSource<StreamFrame> response = pendingKeyframe[checkStreamId];
+                                pendingKeyframe.Remove(checkStreamId);
                                 response.SetResult(streamFrame);
                             }
                         }
@@ -137,6 +146,22 @@ namespace ApiForZR04RN
         {
             if (Disconnected != null)
                 Disconnected();
+        }
+
+        public async Task ChangeTime(uint time)
+        {
+            // RequestChangeTime
+            byte[] changeTimeData = new byte[4];
+            // success.Authority = data[vi] | (uint)data[vi + 1] << 8 | (uint)data[vi + 2] << 16 | (uint)data[vi + 3] << 24;
+            changeTimeData[0] = (byte)(time & 0xFF);
+            changeTimeData[1] = (byte)((time >> 8) & 0xFF);
+            changeTimeData[2] = (byte)((time >> 16) & 0xFF);
+            changeTimeData[3] = (byte)((time >> 24) & 0xFF);
+
+            Debug.Assert(TaskScheduler.Current == Scheduler);
+            // CommandData cmd = await connection.SendRequest(CommandType.RequestChangeTime, 10, changeTimeData, new CommandType[] { CommandType.ReplyChangeTimeSuccess, CommandType.ReplyChangeTimeFail });
+            await connection.SendCommand(CommandType.RequestChangeTime, 10, changeTimeData);
+            Debug.Assert(TaskScheduler.Current == Scheduler);
         }
 
         public async Task<LoginSuccess> Login(string username, string password)
@@ -168,7 +193,7 @@ namespace ApiForZR04RN
                 case CommandType.ReplyLoginSuccess:
                     LoginSuccess success;
                     // unknown 32 bits
-                    vi = 4;
+                    vi = data.Length == 348 ? 0 : 4;
                     success.Authority = data[vi] | (uint)data[vi + 1] << 8 | (uint)data[vi + 2] << 16 | (uint)data[vi + 3] << 24;
                     vi += 4;
                     success.AuthLiveChannels = data[vi] | (ulong)data[vi + 1] << 8 | (ulong)data[vi + 2] << 16 | (ulong)data[vi + 3] << 24
@@ -263,6 +288,13 @@ namespace ApiForZR04RN
                 default:
                     throw new Exception("Unknown command type");
             }
+        }
+
+        public async Task Logout()
+        {
+            byte[] request = new byte[0];
+            Debug.Assert(TaskScheduler.Current == Scheduler);
+            await connection.SendCommand(CommandType.RequestLogout, 10, request);
         }
 
         public async Task<StreamFrame> SnapKeyframe(int channel)

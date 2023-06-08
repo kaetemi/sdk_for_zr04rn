@@ -21,11 +21,20 @@ namespace ApiForZR04RN
         RequestStreamChange,
         RequestStreamStop,
         RequestKeyframe, //< Supposed to request the next frame to be a keyframe, but no effect on H264 device
+        RequestShutdown,
+        RequestReboot,
+        RequestManualRecord,
+        RequestChangeTime, //< 0x1208
         // ...
         EndControl,
 
         BaseReplyControl = 0x20000,
-
+        ReplyCtrlSuccess,
+        ReplyCtrlFail,
+        ReplyStreamChange,
+        ReplyChangeTimeSuccess, //< 0x20004
+        ReplyChangeTimeFail, //< 0x20005
+        // ...
         EndReplyControl,
 
         BaseReplyStream = 0xa000000,

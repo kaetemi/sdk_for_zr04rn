@@ -134,7 +134,7 @@ namespace ApiForZR04RN
                             }
                             // Console.WriteLine("Received packet with length {0} from {1}", packetLen, fromName);
 
-                            if (packetLen >= (8 + (4 * 4)))
+                            if (packetLen >= (4 * 4)) // (8 + (4 * 4)))
                             {
                                 // cmdtype, cmdid, cmdver, datalen
                                 // Decode command
@@ -151,6 +151,17 @@ namespace ApiForZR04RN
                                 //     Convert.ToString(cmdType, 16),
                                 //     Convert.ToString(cmdId, 16),
                                 //     Convert.ToString(cmdVer, 16), dataLen);
+                                if (dataLen == MagicMarkerAAAA)
+                                {
+                                    // Console.WriteLine("Abort packet, magic AAAA found as length", dataLen);
+                                    // Console.WriteLine();
+                                    for (int j = (vi - 4); j < i; ++j)
+                                        buffer[j - (vi - 4)] = buffer[j];
+                                    i -= (vi - 4);
+                                    mustRead = (i == 0);
+                                    maxFetch = 4096;
+                                    break;
+                                }
                                 if ((packetLen + 8) >= (vi + dataLen))
                                 {
                                     byte[] data = buffer.SubArray(vi, dataLen);

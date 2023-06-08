@@ -212,6 +212,7 @@ namespace SnoopAppForZR04RN
                     if (packetLen > buffer.Length + 8)
                     {
                         Console.WriteLine("Oversize packet {0} from {1}", packetLen, fromName);
+                        hackerPrint(buffer, 0, len);
                         Console.WriteLine();
                     }
 
@@ -226,7 +227,7 @@ namespace SnoopAppForZR04RN
                             }
                             Console.WriteLine("Received packet with length {0} from {1}", packetLen, fromName);
 
-                            if (packetLen >= (8 + (4 * 4)))
+                            if (packetLen >= (4 * 4)) // (8 + (4 * 4)))
                             {
                                 // cmdtype, cmdid, cmdver, datalen
                                 // Decode command
@@ -243,6 +244,18 @@ namespace SnoopAppForZR04RN
                                     Convert.ToString(cmdType, 16),
                                     Convert.ToString(cmdId, 16),
                                     Convert.ToString(cmdVer, 16), dataLen);
+                                if (dataLen == MagicMarkerAAAA)
+                                {
+                                    Console.WriteLine("Abort packet, magic AAAA found as length", dataLen);
+                                    Console.WriteLine();
+                                    await toStream.WriteAsync(buffer, 0, vi - 4);
+                                    for (int j = (vi - 4); j < i; ++j)
+                                        buffer[j - (vi - 4)] = buffer[j];
+                                    i -= (vi - 4);
+                                    mustRead = (i == 0);
+                                    maxFetch = 4096;
+                                    break;
+                                }
                                 if ((packetLen + 8) >= (vi + dataLen))
                                 {
                                     byte[] data = buffer.SubArray(vi, dataLen);
@@ -405,41 +418,46 @@ namespace SnoopAppForZR04RN
                     Console.WriteLine("DVRV3_LOGIN_SUCCESS");
                     if (data == null)
                         goto MissingCommandData;
-                    if (data.Length != 352)
+                    if (data.Length != 352 && data.Length != 348)
                         goto UnknownCommandLength;
                     vi = 0;
                     Console.WriteLine("Unknown: {0}", data[vi] | data[vi + 1] << 8 | data[vi + 2] << 16 | data[vi + 3] << 24);
-                    Console.WriteLine("Authority: {0}", BitConverter.ToString(data, 4, 4));
-                    Console.WriteLine("AuthLiveCH: {0}", BitConverter.ToString(data, 8, 8));
-                    Console.WriteLine("AuthRecordCH: {0}", BitConverter.ToString(data, 16, 8));
-                    Console.WriteLine("AuthPlaybackCH: {0}", BitConverter.ToString(data, 24, 8));
-                    Console.WriteLine("AuthBackupCH: {0}", BitConverter.ToString(data, 32, 8));
-                    Console.WriteLine("AuthPTZCtrlCH: {0}", BitConverter.ToString(data, 40, 8));
-                    Console.WriteLine("AuthRemoteViewCH: {0}", BitConverter.ToString(data, 48, 8));
-                    Console.WriteLine("Unknown: {0}", BitConverter.ToString(data, 56, 28));
-                    Console.WriteLine("VideoInputNum: {0}", data[84] | data[85] << 8);
-                    Console.WriteLine("DeviceID: {0}", data[86] | data[87] << 8);
-                    Console.WriteLine("VideoFormat: {0}", BitConverter.ToString(data, 88, 4));
+                    vi = data.Length == 348 ? 0 : 4;
+                    Console.WriteLine("Authority: {0}", BitConverter.ToString(data, vi + 0, 4));
+                    Console.WriteLine("AuthLiveCH: {0}", BitConverter.ToString(data, vi + 4, 8));
+                    Console.WriteLine("AuthRecordCH: {0}", BitConverter.ToString(data, vi + 12, 8));
+                    Console.WriteLine("AuthPlaybackCH: {0}", BitConverter.ToString(data, vi + 20, 8));
+                    Console.WriteLine("AuthBackupCH: {0}", BitConverter.ToString(data, vi + 28, 8));
+                    Console.WriteLine("AuthPTZCtrlCH: {0}", BitConverter.ToString(data, vi + 36, 8));
+                    Console.WriteLine("AuthRemoteViewCH: {0}", BitConverter.ToString(data, vi + 44, 8));
+                    Console.WriteLine("Unknown: {0}", BitConverter.ToString(data, vi + 52, 28));
+                    Console.WriteLine("VideoInputNum: {0}", data[vi + 80] | data[vi + 81] << 8);
+                    Console.WriteLine("DeviceID: {0}", data[vi + 82] | data[vi + 83] << 8);
+                    Console.WriteLine("VideoFormat: {0}", BitConverter.ToString(data, vi + 84, 4));
                     for (int i = 0; i < 8; ++i)
-                        Console.WriteLine("Function[{0}]: {1}", i, BitConverter.ToString(data, 92 + (4 * i), 4));
-                    Console.WriteLine("IP: {0}.{0}.{0}.{0}", data[124], data[125], data[126], data[127]);
-                    Console.WriteLine("Mac: {0}", BitConverter.ToString(data, 128, 6));
-                    Console.WriteLine("Reserved (NULL): {0}", BitConverter.ToString(data, 134, 2));
+                        Console.WriteLine("Function[{0}]: {1}", i, BitConverter.ToString(data, vi + 88 + (4 * i), 4));
+                    Console.WriteLine("IP: {0}.{1}.{2}.{3}", data[vi + 120], data[vi + 121], data[vi + 122], data[vi + 123]);
+                    Console.WriteLine("Mac: {0}", BitConverter.ToString(data, vi + 124, 6));
+                    Console.WriteLine("Reserved (NULL): {0}", BitConverter.ToString(data, vi + 130, 2));
                     // Console.WriteLine("BuildDate: {0}", BitConverter.ToString(command, 136, 4));
-                    vi = 136;
+                    vi = data.Length == 348 ? 132 : 136;
                     int buildDate = data[vi] | data[vi + 1] << 8 | data[vi + 2] << 16 | data[vi + 3] << 24;
                     Console.WriteLine("BuildDate: {0}-{1}-{2}",
                         (buildDate >> 16).ToString("0000"), ((buildDate >> 8) & 0xFF).ToString("00"), (buildDate & 0xFF).ToString("00"));
                     // Console.WriteLine("BuildTime: {0}", BitConverter.ToString(command, 140, 4));
-                    vi = 140;
+                    vi = data.Length == 348 ? 136 : 140;
                     int buildTime = data[vi] | data[vi + 1] << 8 | data[vi + 2] << 16 | data[vi + 3] << 24;
                     Console.WriteLine("BuildTime: {0}:{1}:{2}",
                         ((buildTime >> 16) & 0xFF).ToString("00"), ((buildTime >> 8) & 0xFF).ToString("00"), (buildTime & 0xFF).ToString("00"));
-                    Console.WriteLine("DeviceName: {0}", Encoding.ASCII.GetString(data, 144, 36).NullTerminate());
-                    Console.WriteLine("FirmwareVersion: {0}", Encoding.ASCII.GetString(data, 180, 36).NullTerminate());
-                    Console.WriteLine("KernelVersion: {0}", Encoding.ASCII.GetString(data, 216, 64).NullTerminate());
-                    Console.WriteLine("HardwareVersion: {0}", Encoding.ASCII.GetString(data, 280, 36).NullTerminate());
-                    Console.WriteLine("McuVersion: {0}", Encoding.ASCII.GetString(data, 316, 36).NullTerminate());
+                    Console.WriteLine("DeviceName: {0}", Encoding.ASCII.GetString(data, vi - 140 + 144, 36).NullTerminate());
+                    Console.WriteLine("FirmwareVersion: {0}", Encoding.ASCII.GetString(data, vi - 140 + 180, 36).NullTerminate());
+                    Console.WriteLine("KernelVersion: {0}", Encoding.ASCII.GetString(data, vi - 140 + 216, 64).NullTerminate());
+                    Console.WriteLine("HardwareVersion: {0}", Encoding.ASCII.GetString(data, vi - 140 + 280, 36).NullTerminate());
+                    Console.WriteLine("McuVersion: {0}", Encoding.ASCII.GetString(data, vi - 140 + 316, 36).NullTerminate());
+                    break;
+                case 0x10002:
+                    Console.WriteLine("DVRV3_LOGIN_FAILED");
+                    Console.WriteLine("Unknown: {0}", BitConverter.ToString(data, 0, 4));
                     break;
                 case 0x1401:
                     Console.WriteLine("DVRV3_REQUEST_CFG_ENTER");
