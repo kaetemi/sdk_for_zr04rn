@@ -5,6 +5,8 @@ using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.Text;
 using System.IO;
+using System.Threading;
+using System.Diagnostics;
 
 namespace ApiForZR04RN
 {
@@ -22,11 +24,14 @@ namespace ApiForZR04RN
         Dictionary<uint, TaskCompletionSource<StreamFrame>> pendingKeyframe;
         Dictionary<uint, int> streamChannel;
 
-        public DeviceConnection()
+        public SequentialScheduler Scheduler { get; private set; }
+
+        public DeviceConnection(SequentialScheduler scheduler)
         {
             pendingKeyframe = new Dictionary<uint, TaskCompletionSource<StreamFrame>>();
             streamChannel = new Dictionary<uint, int>();
-            connection = new StructuredDeviceConnection();
+            Scheduler = scheduler;
+            connection = new StructuredDeviceConnection(scheduler);
             connection.Connected += Connection_Connected;
             connection.CommandReceived += Connection_CommandReceived;
             connection.Disconnected += Connection_Disconnected;
@@ -45,11 +50,13 @@ namespace ApiForZR04RN
 
         public async Task Connect(string address, int port)
         {
+            Debug.Assert(TaskScheduler.Current == Scheduler);
             await connection.Connect(address, port);
         }
 
         public void Disconnect()
         {
+            Debug.Assert(TaskScheduler.Current == Scheduler);
             foreach (TaskCompletionSource<StreamFrame> pending in pendingKeyframe.Values)
                 pending.SetException(new Exception("Disconnected"));
             pendingKeyframe.Clear();
@@ -58,12 +65,14 @@ namespace ApiForZR04RN
 
         private void Connection_Connected()
         {
+            Debug.Assert(TaskScheduler.Current == Scheduler);
             if (Connected != null)
                 Connected();
         }
 
         private void Connection_CommandReceived(CommandType cmdType, uint cmdId, uint cmdVer, byte[] data)
         {
+            Debug.Assert(TaskScheduler.Current == Scheduler);
             int vi;
             switch (cmdType)
             {
@@ -149,7 +158,9 @@ namespace ApiForZR04RN
             // byte[2] null;
             loginData[116] = 10; // uint NetProtocolVer;
 
+            Debug.Assert(TaskScheduler.Current == Scheduler);
             CommandData cmd = await connection.SendRequest(CommandType.RequestLogin, 10, loginData, new CommandType[] { CommandType.ReplyLoginSuccess, CommandType.ReplyLoginFail });
+            Debug.Assert(TaskScheduler.Current == Scheduler);
             byte[] data = cmd.Data;
             int vi;
             switch (cmd.Type)
@@ -278,12 +289,15 @@ namespace ApiForZR04RN
             request[20] = sub == 2 ? (byte)(1 << channel) : (byte)0;
             // ulong AudioChannelBits;
             // request[28] = request[4];
+            Debug.Assert(TaskScheduler.Current == Scheduler);
             await connection.SendCommand(CommandType.RequestStreamStart, 10, request);
+            Debug.Assert(TaskScheduler.Current == Scheduler);
             return await response.Task;
         }
 
         public async Task<uint> StreamStart(int channel) // returns streamid
         {
+            Debug.Assert(TaskScheduler.Current == Scheduler);
             return await StreamStart(channel, 0, true);
         }
 
@@ -305,7 +319,9 @@ namespace ApiForZR04RN
             request[20] = sub == 2 ? (byte)(1 << channel) : (byte)0;
             // ulong AudioChannelBits;
             request[20] = audio ? (byte)(1 << channel) : (byte)0;
+            Debug.Assert(TaskScheduler.Current == Scheduler);
             await connection.SendCommand(CommandType.RequestStreamStart, 10, request);
+            Debug.Assert(TaskScheduler.Current == Scheduler);
             return streamId;
         }
 
@@ -318,6 +334,7 @@ namespace ApiForZR04RN
             request[3] = (byte)((streamId >> 24) & 0xFF);
             request[4] = (byte)(1 << streamChannel[streamId]);
             request[28] = request[4];
+            Debug.Assert(TaskScheduler.Current == Scheduler);
             await connection.SendCommand(CommandType.RequestStreamChange, 10, request);
         }
 
@@ -330,6 +347,7 @@ namespace ApiForZR04RN
             request[3] = (byte)((streamId >> 24) & 0xFF);
             if (streamChannel.ContainsKey(streamId))
                 streamChannel.Remove(streamId);
+            Debug.Assert(TaskScheduler.Current == Scheduler);
             await connection.SendCommand(CommandType.RequestStreamStop, 10, request);
         }
     }

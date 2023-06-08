@@ -7,6 +7,8 @@ using System.Text;
 using System.Collections.Generic;
 using ApiForZR04RN;
 using System.Threading.Tasks;
+using System.Diagnostics;
+using System.Threading;
 
 // RTSP Server Example (c) Roger Hardiman, 2016, 2018
 // Released uder the MIT Open Source Licence
@@ -54,14 +56,18 @@ public class RtspServer : IDisposable
     string nvrUsername;
     string nvrPassword;
 
+    SequentialScheduler scheduler;
+
     /// <summary>
     /// Initializes a new instance of the <see cref="RTSPServer"/> class.
     /// </summary>
     /// <param name="aPortNumber">A numero port.</param>
 	/// <param name="username">username.</param>
 	/// <param name="password">password.</param>
-    public RtspServer(int portNumber, string username, string password, string nvrHost, int nvrPort, int nvrChannel, string nvrUsername, string nvrPassword)
+    public RtspServer(SequentialScheduler scheduler, int portNumber, string username, string password, string nvrHost, int nvrPort, int nvrChannel, string nvrUsername, string nvrPassword)
     {
+        Debug.Assert(TaskScheduler.Current == scheduler);
+
         if (portNumber < System.Net.IPEndPoint.MinPort || portNumber > System.Net.IPEndPoint.MaxPort)
             throw new ArgumentOutOfRangeException("aPortNumber", portNumber, "Port number must be between System.Net.IPEndPoint.MinPort and System.Net.IPEndPoint.MaxPort");
         Contract.EndContractBlock();
@@ -77,6 +83,7 @@ public class RtspServer : IDisposable
             auth = null;
         }
 
+        this.scheduler = scheduler;
         this.nvrHost = nvrHost;
         this.nvrPort = nvrPort;
         this.nvrChannel = nvrChannel;
@@ -85,13 +92,14 @@ public class RtspServer : IDisposable
 
         RtspUtils.RegisterUri();
         rtspServerListener = new TcpListener(IPAddress.Any, portNumber);
-        nvr = new DeviceConnection();
+        nvr = new DeviceConnection(scheduler);
         nvr.StreamFrameReceived += Nvr_StreamFrameReceived;
         nvr.Disconnected += Nvr_Disconnected;
     }
 
     private void Nvr_Disconnected()
     {
+        Debug.Assert(TaskScheduler.Current == scheduler);
         lock (rtsp_list)
         {
             lastCount = 0;
@@ -102,6 +110,7 @@ public class RtspServer : IDisposable
 
     async Task UpdateClients()
     {
+        Debug.Assert(TaskScheduler.Current == scheduler);
         int lc;
         int count;
         lock (rtsp_list)
@@ -208,6 +217,7 @@ public class RtspServer : IDisposable
 
     public void StopListen()
     {
+        Debug.Assert(TaskScheduler.Current == scheduler);
         stopping = true;
         rtspServerListener.Stop();
     }
@@ -230,9 +240,17 @@ public class RtspServer : IDisposable
 
     #endregion
 
-    // Process each RTSP message that is received
     private void RTSP_Message_Received(object sender, RtspChunkEventArgs e)
     {
+        Task received = Task.Factory.StartNew(() => RTSP_Message_ReceivedTask(sender, e), CancellationToken.None, TaskCreationOptions.None, scheduler);
+        received.Wait();
+    }
+
+    // Process each RTSP message that is received
+    private void RTSP_Message_ReceivedTask(object sender, RtspChunkEventArgs e)
+    {
+        Debug.Assert(TaskScheduler.Current == scheduler);
+
         // Cast the 'sender' and 'e' into the RTSP Listener (the Socket) and the RTSP Message
         Rtsp.RtspListener listener = sender as Rtsp.RtspListener;
         Rtsp.Messages.RtspMessage message = e.Message as Rtsp.Messages.RtspMessage;
@@ -582,6 +600,8 @@ public class RtspServer : IDisposable
 
     private void Nvr_StreamFrameReceived(StreamFrame obj)
     {
+        Debug.Assert(TaskScheduler.Current == scheduler);
+
         if (obj.StreamId != streamId)
             return;
 

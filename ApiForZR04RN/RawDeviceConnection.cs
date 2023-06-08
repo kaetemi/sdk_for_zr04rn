@@ -5,6 +5,8 @@ using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.Text;
 using System.IO;
+using System.Threading;
+using System.Diagnostics;
 
 namespace ApiForZR04RN
 {
@@ -32,6 +34,13 @@ namespace ApiForZR04RN
         public event CommandCallback CommandReceived;
         public event Action Disconnected;
 
+        public SequentialScheduler Scheduler { get; private set; }
+
+        public RawDeviceConnection(SequentialScheduler scheduler)
+        {
+            Scheduler = scheduler;
+        }
+
         ~RawDeviceConnection()
         {
             Disconnect();
@@ -42,14 +51,18 @@ namespace ApiForZR04RN
             Disconnect();
             client = new TcpClient();
             abortListen = false;
+            Debug.Assert(TaskScheduler.Current == Scheduler);
             await client.ConnectAsync(address, port);
+            Debug.Assert(TaskScheduler.Current == Scheduler);
             listenTask = Listen(client);
+            Debug.Assert(TaskScheduler.Current == Scheduler);
             if (Connected != null)
                 Connected();
         }
 
         public void Disconnect()
         {
+            Debug.Assert(TaskScheduler.Current == Scheduler);
             if (client != null)
             {
                 abortListen = true;
@@ -72,6 +85,7 @@ namespace ApiForZR04RN
         private async Task Listen(TcpClient client)
         {
             NetworkStream stream = client.GetStream();
+            Debug.Assert(TaskScheduler.Current == Scheduler);
             try
             {
                 byte[] buffer = new byte[256 * 1024];
@@ -80,10 +94,13 @@ namespace ApiForZR04RN
                 int maxFetch = 4096;
                 while (!abortListen && client == this.client)
                 {
+                    Debug.Assert(TaskScheduler.Current == Scheduler);
                     int len;
                     if (mustRead)
                     {
+                        Debug.Assert(TaskScheduler.Current == Scheduler);
                         len = await stream.ReadAsync(buffer, i, Math.Min(buffer.Length - i, maxFetch));
+                        Debug.Assert(TaskScheduler.Current == Scheduler);
                         maxFetch = 4096;
                         if (len <= 0)
                             break;
@@ -272,10 +289,12 @@ namespace ApiForZR04RN
             }
             if (Disconnected != null)
                 Disconnected();
+            Debug.Assert(TaskScheduler.Current == Scheduler);
         }
 
         public async Task SendCommand(CommandType cmdType, uint cmdId, uint cmdVer, byte[] data)
         {
+            Debug.Assert(TaskScheduler.Current == Scheduler);
             if (data != null)
             {
                 byte[] packet = new byte[24 + data.Length];
@@ -308,6 +327,7 @@ namespace ApiForZR04RN
                 for (int i = 0; i < data.Length; ++i)
                     packet[24 + i] = data[i];
                 await client.GetStream().WriteAsync(packet, 0, packet.Length);
+                Debug.Assert(TaskScheduler.Current == Scheduler);
             }
         }
     }

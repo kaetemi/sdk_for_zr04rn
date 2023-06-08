@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.Text;
 using System.IO;
+using System.Diagnostics;
 
 namespace ApiForZR04RN
 {
@@ -26,11 +27,14 @@ namespace ApiForZR04RN
 
         Dictionary<uint, Pending> pendingId;
 
-        public StructuredDeviceConnection()
+        public SequentialScheduler Scheduler { get; private set; }
+
+        public StructuredDeviceConnection(SequentialScheduler scheduler)
         {
             lastCmdId = 0;
             pendingId = new Dictionary<uint, Pending>();
-            connection = new RawDeviceConnection();
+            Scheduler = scheduler;
+            connection = new RawDeviceConnection(scheduler);
             connection.CommandReceived += Connection_CommandReceived;
             connection.Connected += Connection_Connected;
             connection.Disconnected += Connection_Disconnected;
@@ -55,6 +59,7 @@ namespace ApiForZR04RN
 
         private void Connection_CommandReceived(CommandType cmdType, uint cmdId, uint cmdVer, byte[] data)
         {
+            Debug.Assert(TaskScheduler.Current == Scheduler);
             if (pendingId.ContainsKey(cmdId))
             {
                 TaskCompletionSource<CommandData> response = pendingId[cmdId].Response;
@@ -93,6 +98,7 @@ namespace ApiForZR04RN
 
         private void Connection_Disconnected()
         {
+            Debug.Assert(TaskScheduler.Current == Scheduler);
             foreach (Pending pending in pendingId.Values)
                 pending.Response.SetException(new Exception("Disconnected"));
             pendingId.Clear();
@@ -102,16 +108,20 @@ namespace ApiForZR04RN
 
         public async Task SendCommand(CommandType cmdType, uint cmdVer, byte[] data)
         {
+            Debug.Assert(TaskScheduler.Current == Scheduler);
             await connection.SendCommand(cmdType, 0xFFFFFFFF, cmdVer, data);
+            Debug.Assert(TaskScheduler.Current == Scheduler);
         }
 
         public async Task<CommandData> SendRequest(CommandType cmdType, uint cmdVer, byte[] data)
         {
+            Debug.Assert(TaskScheduler.Current == Scheduler);
             return await SendRequest(cmdType, cmdVer, data, null);
         }
 
         public async Task<CommandData> SendRequest(CommandType cmdType, uint cmdVer, byte[] data, CommandType[] responseTypes)
         {
+            Debug.Assert(TaskScheduler.Current == Scheduler);
             Pending pending;
             pending.Response = new TaskCompletionSource<CommandData>();
             pending.CmdTypes = responseTypes;
@@ -125,11 +135,13 @@ namespace ApiForZR04RN
 
         public async Task Connect(string address, int port)
         {
+            Debug.Assert(TaskScheduler.Current == Scheduler);
             await connection.Connect(address, port);
         }
 
         public void Disconnect()
         {
+            Debug.Assert(TaskScheduler.Current == Scheduler);
             connection.Disconnect();
         }
     }
